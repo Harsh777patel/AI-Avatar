@@ -8,6 +8,7 @@ import mongoose from 'mongoose';
 import userRoutes from './routes/UserRoutes.js';
 import fs from 'fs';
 import axios from 'axios';
+import Persona from './models/Persona.js';
 
 dotenv.config();
 
@@ -17,163 +18,284 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
+// ── Middleware ────────────────────────────────────────────────────────────────
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// MongoDB Connection
-mongoose.connect(process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/aiavatar').then(() => {
-  console.log('MongoDB connected successfully');
-}).catch((err) => {
-  console.error('MongoDB connection error:', err);
-});
+// ── MongoDB ───────────────────────────────────────────────────────────────────
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log('MongoDB connected successfully'))
+  .catch((err) => console.error('MongoDB connection error:', err));
 
-// Routes
+// ── Routes ────────────────────────────────────────────────────────────────────
 app.use('/api/users', userRoutes);
 
-// Storage for custom uploaded photos
+// ── File uploads ──────────────────────────────────────────────────────────────
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    if (!fs.existsSync('uploads')) {
-      fs.mkdirSync('uploads');
-    }
+    if (!fs.existsSync('uploads')) fs.mkdirSync('uploads');
     cb(null, 'uploads/');
   },
   filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
     cb(null, uniqueSuffix + path.extname(file.originalname));
-  }
+  },
 });
-const upload = multer({ storage: storage });
-
-// Serve uploaded files statically
+const upload = multer({ storage });
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Professional endpoint for generating video using an external AI Video Generator API
-app.post('/api/generate', upload.single('photo'), async (req, res) => {
+// ── GET /api/anam/avatars ─────────────────────────────────────────────────────
+// Anam API returns: { data: [...], meta: {} }
+// Each avatar: { id, displayName, variantName, imageUrl, videoUrl }
+// Frontend normalizeAvatar() expects: { id, name, variantName, thumbnailUrl, videoUrl }
+// We map here so the frontend's fallback normalizer is a no-op.
+app.get('/api/anam/avatars', async (req, res) => {
   try {
-    const { script, presetAvatarId } = req.body;
-    const uploadedPhoto = req.file;
-
-    if (!script) {
-      return res.status(400).json({ success: false, error: 'Script is required' });
-    }
-
-    console.log('--- New Video Generation Request ---');
-    console.log('- Script:', script);
-    
-    // Read the uploaded file to pass to the API
-    let imageBase64 = null;
-    let mimeType = null;
-
-    if (presetAvatarId === 'upload' && uploadedPhoto) {
-      console.log('- Uploaded Photo:', uploadedPhoto.filename);
-      const photoPath = path.join(__dirname, 'uploads', uploadedPhoto.filename);
-      const fileData = fs.readFileSync(photoPath);
-      imageBase64 = fileData.toString('base64');
-      mimeType = uploadedPhoto.mimetype;
-    } else {
-      console.log('- Preset Avatar ID:', presetAvatarId);
-      // In a real app we would load preset image data here
-    }
-
-    // Use ANAM_API_KEY (or heygen/did api key) from .env
     const apiKey = process.env.ANAM_API_KEY;
+    if (!apiKey) return res.status(500).json({ success: false, error: 'ANAM_API_KEY not configured' });
 
-    if (!apiKey) {
-      return res.status(500).json({ success: false, error: 'API key not configured' });
-    }
+    const response = await axios.get('https://api.anam.ai/v1/avatars', {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      params: { perPage: 100, page: 1 },
+    });
 
-    let sourceUrl = '';
-    if (presetAvatarId !== 'upload' && presetAvatarId) {
-       const presetAvatars = [
-         { id: '1', url: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=200&h=200' },
-         { id: '2', url: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=200&h=200' },
-         { id: '3', url: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&q=80&w=200&h=200' },
-         { id: '4', url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=200&h=200' },
-       ];
-       const preset = presetAvatars.find(p => p.id === presetAvatarId);
-       sourceUrl = preset ? preset.url : '';
-    } else if (imageBase64) {
-       sourceUrl = `data:${mimeType};base64,${imageBase64}`;
-    }
+    // Anam wraps results in { data: [...], meta: {} }
+    const raw = response.data?.data || [];
 
-    try {
-      console.log('Calling external AI Video API (Anam / D-ID)...');
-      
-      const authHeader = apiKey.includes(':') 
-          ? `Basic ${Buffer.from(apiKey).toString('base64')}` 
-          : `Bearer ${apiKey}`;
+    const avatars = raw.map(av => ({
+      id:          av.id,
+      name:        av.displayName || 'Avatar',   // displayName → name
+      variantName: av.variantName || '',
+      thumbnailUrl: av.imageUrl || '',            // imageUrl → thumbnailUrl
+      videoUrl:    av.videoUrl || '',
+    }));
 
-      const talkResponse = await axios.post('https://api.d-id.com/talks', {
-        script: {
-          type: "text",
-          input: script,
-          provider: { type: "microsoft", voice_id: "en-US-JennyNeural" }
-        },
-        source_url: sourceUrl
-      }, {
-        headers: {
-          'Authorization': authHeader,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      const talkId = talkResponse.data.id;
-      console.log('Video generation started with ID:', talkId);
-
-      // Polling for the video result
-      let videoUrl = null;
-      let status = 'created';
-      let retries = 0;
-
-      while ((status === 'created' || status === 'started') && retries < 20) {
-        await new Promise(resolve => setTimeout(resolve, 3000)); // wait 3 seconds
-        
-        const statusResponse = await axios.get(`https://api.d-id.com/talks/${talkId}`, {
-          headers: { 'Authorization': authHeader }
-        });
-        
-        status = statusResponse.data.status;
-        console.log(`Polling status: ${status}`);
-        
-        if (status === 'done') {
-          videoUrl = statusResponse.data.result_url;
-          break;
-        } else if (status === 'error' || status === 'rejected') {
-          throw new Error('API returned error status: ' + status);
-        }
-        
-        retries++;
-      }
-
-      if (videoUrl) {
-         return res.status(200).json({
-          success: true,
-          message: 'Video generation complete',
-          data: {
-            videoUrl: videoUrl,
-            id: talkId
-          }
-        });
-      } else {
-        throw new Error("Polling timeout, video took too long to generate");
-      }
-
-    } catch (apiError) {
-      console.error('API Process/Error:', apiError.response?.data || apiError.message);
-      // Return 200 so axios doesn't throw an error on the frontend, allowing for graceful alerts
-      res.status(200).json({ success: false, error: 'API Error: The AI video service rejected the request (likely due to an invalid or missing API Key). Please verify your API key.' });
-    }
-
+    return res.status(200).json({ success: true, avatars });
   } catch (error) {
-    console.error('Error generating video:', error);
-    // General server error
-    res.status(200).json({ success: false, error: 'Internal Server Error during video generation' });
+    console.error('Anam avatars error:', error.response?.data || error.message);
+    return res.status(500).json({ success: false, error: 'Failed to fetch avatars' });
   }
 });
 
+// ── GET /api/anam/voices ──────────────────────────────────────────────────────
+// Anam API returns: { data: [...], meta: {} }
+// Each voice: { id, displayName, provider, gender (MALE/FEMALE), country,
+//              description, sampleUrl, previewSampleUrl, displayTags, providerModelId }
+// Frontend normalizeVoice() expects: { id, name, provider (uppercase), gender (lowercase),
+//              country, description, sampleUrl, tags }
+// We map here so the frontend's fallback normalizer is a no-op.
+app.get('/api/anam/voices', async (req, res) => {
+  try {
+    const apiKey = process.env.ANAM_API_KEY;
+    if (!apiKey) return res.status(500).json({ success: false, error: 'ANAM_API_KEY not configured' });
+
+    const response = await axios.get('https://api.anam.ai/v1/voices', {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      params: { perPage: 100, page: 1 },
+    });
+
+    const raw = response.data?.data || [];
+
+    const voices = raw.map(v => ({
+      id:          v.id,
+      name:        v.displayName || v.id,
+      provider:    (v.provider || 'CARTESIA').toUpperCase(),  // keep uppercase — frontend badge logic uses toUpperCase()
+      gender:      (v.gender || '').toLowerCase(),            // API sends "MALE"/"FEMALE" → lowercase for frontend filter
+      country:     v.country || '',
+      description: v.description || '',
+      sampleUrl:   v.sampleUrl || v.previewSampleUrl || '',   // both field names exist in the API
+      tags:        v.displayTags || [],
+    }));
+
+    return res.status(200).json({ success: true, voices });
+  } catch (error) {
+    console.error('Anam voices error:', error.response?.data || error.message);
+    return res.status(500).json({ success: false, error: 'Failed to fetch voices' });
+  }
+});
+
+// ── POST /api/anam/session-token ──────────────────────────────────────────────
+// Frontend sends the full object from buildPersonaConfig():
+//
+// {
+//   name:         string,
+//   avatarId:     string,
+//   voiceId:      string,
+//   llmId:        string,
+//   languageCode: string,          e.g. "en", "hi", "fr"
+//   skipGreeting: boolean,
+//   systemPrompt: string,
+//
+//   // Cartesia voice:
+//   voiceGenerationOptions: { speed: number, volume: number, emotion: string }
+//
+//   // ElevenLabs voice:
+//   voiceGenerationOptions: { speed: number, stability: number, similarityBoost: number,
+//                             style: number, useSpeakerBoost: boolean }
+//
+//   voiceDetectionOptions: { endOfSpeechSensitivity: number, speechEnhancementLevel: number }
+// }
+app.post('/api/anam/session-token', async (req, res) => {
+  console.log('Session token request body:', JSON.stringify(req.body, null, 2));
+
+  try {
+    const apiKey = process.env.ANAM_API_KEY;
+    if (!apiKey) return res.status(500).json({ success: false, error: 'ANAM_API_KEY not configured' });
+
+    // ── Destructure every field the client may send ───────────────────────────
+    const {
+      // Core persona identity
+      name         = 'Presenter',
+      avatarId     = '30fa96d0-26c4-4e55-94a0-517025942e18',
+      voiceId      = '6bfbe25a-979d-40f3-a92b-5394170af54b',
+      llmId        = '0934d97d-0c3a-4f33-91b0-5e136a0ef466',
+      systemPrompt = 'You are a helpful AI assistant.',
+
+      // Language & behaviour
+      languageCode = 'en',
+      skipGreeting = true,
+
+      // Voice generation — client sends one of two shapes depending on provider
+      voiceGenerationOptions = {},
+
+      // Voice detection
+      voiceDetectionOptions = {},
+    } = req.body;
+
+    // ── Build voiceGenerationOptions cleanly ──────────────────────────────────
+    // Pull every possible field out of what the client sent; only forward
+    // defined values so Anam doesn't choke on unexpected nulls.
+    const {
+      // Shared
+      speed,
+      // Cartesia-only
+      volume,
+      emotion,
+      // ElevenLabs-only
+      stability,
+      similarityBoost,
+      style,
+      useSpeakerBoost,
+    } = voiceGenerationOptions;
+
+    const builtVoiceGenerationOptions = {
+      ...(speed          != null && { speed }),
+      ...(volume         != null && { volume }),
+      ...(emotion        != null && { emotion }),
+      ...(stability      != null && { stability }),
+      ...(similarityBoost != null && { similarityBoost }),
+      ...(style          != null && { style }),
+      ...(useSpeakerBoost != null && { useSpeakerBoost }),
+    };
+
+    // ── Build voiceDetectionOptions cleanly ───────────────────────────────────
+    const {
+      endOfSpeechSensitivity,
+      speechEnhancementLevel,
+    } = voiceDetectionOptions;
+
+    const builtVoiceDetectionOptions = {
+      ...(endOfSpeechSensitivity != null && { endOfSpeechSensitivity }),
+      ...(speechEnhancementLevel != null && { speechEnhancementLevel }),
+    };
+
+    // ── Assemble final personaConfig ──────────────────────────────────────────
+    // Only attach optional sub-objects when they have at least one key,
+    // otherwise Anam may reject an empty {} as invalid.
+    const personaConfig = {
+      name,
+      avatarId,
+      voiceId,
+      llmId,
+      systemPrompt,
+      languageCode,
+      skipGreeting,
+      ...(Object.keys(builtVoiceGenerationOptions).length > 0 && {
+        voiceGenerationOptions: builtVoiceGenerationOptions,
+      }),
+      ...(Object.keys(builtVoiceDetectionOptions).length > 0 && {
+        voiceDetectionOptions: builtVoiceDetectionOptions,
+      }),
+    };
+
+    console.log('Sending personaConfig to Anam:', JSON.stringify(personaConfig, null, 2));
+
+    const response = await axios.post(
+      'https://api.anam.ai/v1/auth/session-token',
+      { personaConfig },
+      { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` } }
+    );
+
+    const { sessionToken } = response.data;
+    if (!sessionToken) {
+      return res.status(502).json({ success: false, error: 'No session token returned from Anam' });
+    }
+
+    console.log('Session token issued for persona:', name, '| avatar:', avatarId, '| voice:', voiceId);
+    return res.status(200).json({ success: true, sessionToken });
+
+  } catch (error) {
+    const msg = error.response?.data || error.message;
+    console.error('Anam session-token error:', msg);
+    return res.status(500).json({ success: false, error: 'Failed to create session', details: msg });
+  }
+});
+
+// ── GET /api/anam/personas (preset list from Anam) ────────────────────────────
+app.get('/api/anam/personas/presets', async (req, res) => {
+  try {
+    const apiKey = process.env.ANAM_API_KEY;
+    const response = await axios.get('https://api.anam.ai/v1/personas/presets', {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    return res.status(200).json({ success: true, personas: response.data });
+  } catch (error) {
+    const msg = error.response?.data || error.message;
+    console.error('Anam personas fetch error:', msg);
+    return res.status(500).json({ success: false, error: 'Failed to fetch personas', details: msg });
+  }
+});
+
+// ── CRUD /api/anam/personas (user-saved personas in MongoDB) ──────────────────
+app.get('/api/anam/personas', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    const personas = await Persona.find({ userId }).sort({ createdAt: -1 });
+    return res.status(200).json({ success: true, personas });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/anam/personas', async (req, res) => {
+  try {
+    const persona = await Persona.create(req.body);
+    return res.status(201).json({ success: true, persona });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.put('/api/anam/personas/:id', async (req, res) => {
+  try {
+    const persona = await Persona.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    return res.status(200).json({ success: true, persona });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/anam/personas/:id', async (req, res) => {
+  try {
+    await Persona.findByIdAndDelete(req.params.id);
+    return res.status(200).json({ success: true });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
-  console.log(`Backend server running precisely at http://localhost:${PORT}`);
+  console.log(`Backend server running at http://localhost:${PORT}`);
 });

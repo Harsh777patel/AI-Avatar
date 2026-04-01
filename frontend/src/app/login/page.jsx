@@ -16,7 +16,7 @@ export default function Login() {
       const res = await axios.post('http://localhost:5000/api/users/login', { email, password });
       if (res.data.token) {
         localStorage.setItem('token', res.data.token);
-        window.location.href = '/dashboard';
+        window.location.href = '/script-studio';
       }
     } catch (err) {
       setError(err.response?.data?.error || 'Login failed');
