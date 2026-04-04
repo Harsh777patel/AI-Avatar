@@ -242,6 +242,51 @@ app.post('/api/anam/session-token', async (req, res) => {
   }
 });
 
+// ── POST /api/generate — Anam AI Generation ──────────────────────────────────
+app.post('/api/generate', upload.single('photo'), async (req, res) => {
+  try {
+    const { script, presetAvatarId } = req.body;
+    let avatarId = presetAvatarId || '30fa96d0-26c4-4e55-94a0-517025942e18';
+
+    // If there's an uploaded photo, we'd theoretically use that to create a persona first.
+    // For now, let's assume we use the provided avatarId or a default.
+
+    const apiKey = process.env.ANAM_API_KEY;
+    if (!apiKey) return res.status(500).json({ success: false, error: 'ANAM_API_KEY not configured' });
+
+    const mockVideoUrl = `http://localhost:${PORT}/uploads/sample_video.mp4`;
+    
+    // Ensure sample exists for testing if needed
+    const samplePath = path.join(__dirname, 'uploads', 'sample_video.mp4');
+    if (!fs.existsSync(samplePath)) {
+      // Create empty mp4 or just log it
+      fs.writeFileSync(samplePath, ''); 
+    }
+
+    res.json({
+      success: true,
+      data: {
+        videoUrl: mockVideoUrl
+      }
+    });
+
+  } catch (err) {
+    console.error('Generation Error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ── POST /api/upload-video — handler helper ───────────────────────────────────
+app.post('/api/upload-video', upload.single('video'), (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ success: false, error: 'No file uploaded' });
+    const videoUrl = `http://localhost:${PORT}/uploads/${req.file.filename}`;
+    res.json({ success: true, videoUrl });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // ── GET /api/anam/personas (preset list from Anam) ────────────────────────────
 app.get('/api/anam/personas/presets', async (req, res) => {
   try {

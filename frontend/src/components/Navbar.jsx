@@ -6,6 +6,17 @@ import { Menu, X, Video } from 'lucide-react';
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
+  const [isLogged, setIsLogged] = useState(false);
+
+  React.useEffect(() => {
+    setIsLogged(!!localStorage.getItem('token'));
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '/login';
+  };
 
   const navLinks = [
     { name: 'Script Studio', href: '/script-studio' },
@@ -33,7 +44,7 @@ export default function Navbar() {
           {/* Desktop Menu */}
           <div className="hidden md:flex items-center gap-8">
             <div className="flex space-x-8">
-              {navLinks.map((link) => (
+              {isLogged && navLinks.map((link) => (
                 <Link
                   key={link.name}
                   href={link.href}
@@ -45,18 +56,29 @@ export default function Navbar() {
             </div>
             
             <div className="flex items-center space-x-4 ml-4">
-              <Link
-                href="/login"
-                className="text-gray-700 font-semibold hover:text-gray-900 transition-colors"
-              >
-                Log in
-              </Link>
-              <Link
-                href="/signup"
-                className="bg-[#00c8f5] hover:bg-[#00b5dd] text-white px-5 py-2.5 rounded-full font-bold transition-all shadow-md hover:shadow-lg"
-              >
-                Sign up free
-              </Link>
+              {!isLogged ? (
+                <>
+                  <Link
+                    href="/login"
+                    className="text-gray-700 font-semibold hover:text-gray-900 transition-colors"
+                  >
+                    Log in
+                  </Link>
+                  <Link
+                    href="/signup"
+                    className="bg-[#00c8f5] hover:bg-[#00b5dd] text-white px-5 py-2.5 rounded-full font-bold transition-all shadow-md hover:shadow-lg"
+                  >
+                    Sign up free
+                  </Link>
+                </>
+              ) : (
+                <button
+                  onClick={handleLogout}
+                  className="bg-red-500 hover:bg-red-600 text-white px-5 py-2.5 rounded-full font-bold transition-all shadow-md hover:shadow-lg"
+                >
+                  Log out
+                </button>
+              )}
             </div>
           </div>
 

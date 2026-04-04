@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
-import { Camera, Check, ArrowRight, Download, Video, Loader2, LayoutDashboard, Settings, LogOut, Search, PlusCircle, History } from "lucide-react";
+import Link from "next/link";
+import { Camera, Check, ArrowRight, Download, Video, Loader2, LayoutDashboard, Settings, LogOut, Search, PlusCircle, History, Users, MessageSquare } from "lucide-react";
 import axios from "axios";
+import { useRouter } from "next/navigation";
 
 const presetAvatars = [
   { id: '1', url: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=200&h=200' },
@@ -13,12 +15,49 @@ const presetAvatars = [
 ];
 
 export default function Dashboard() {
+  const router = useRouter();
+  const [role, setRole] = useState('user');
   const [selectedAvatarId, setSelectedAvatarId] = useState('1');
   const [uploadedImage, setUploadedImage] = useState(null);
   const [script, setScript] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState(null);
   const [activeTab, setActiveTab] = useState('create');
+  const [userVideos, setUserVideos] = useState([]);
+  const [isLoadingVideos, setIsLoadingVideos] = useState(false);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      router.push('/login');
+    } else {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      if (user?.role) setRole(user.role);
+    }
+  }, [router]);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token && activeTab === 'history') {
+      fetchUserVideos(token);
+    }
+  }, [activeTab]);
+
+  const fetchUserVideos = async (token) => {
+    setIsLoadingVideos(true);
+    try {
+      const response = await axios.get('http://localhost:5000/api/users/videos', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.data.success) {
+        setUserVideos(response.data.videos || []);
+      }
+    } catch (error) {
+      console.error('Error fetching videos:', error);
+    } finally {
+      setIsLoadingVideos(false);
+    }
+  };
 
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
@@ -54,7 +93,27 @@ export default function Dashboard() {
 
       if (response.data.success) {
         setGeneratedVideoUrl(response.data.data.videoUrl);
-        alert("Video generated successfully via Anam API!");
+        // Automatically save to dashboard
+        const token = localStorage.getItem('token');
+        if (token) {
+          const newVideo = {
+            name: script.substring(0, 30) + (script.length > 30 ? '...' : ''),
+            url: response.data.data.videoUrl,
+            createdAt: new Date().toISOString()
+          };
+          
+          await axios.post('http://localhost:5000/api/users/save-video', {
+            name: newVideo.name,
+            url: newVideo.url
+          }, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          
+          setUserVideos(prev => [newVideo, ...prev]);
+          fetchUserVideos(token);
+          setActiveTab('history');
+        }
+        alert("Video generated and saved to dashboard!");
       } else {
         alert("Failed to generate video.");
       }
@@ -92,7 +151,7 @@ export default function Dashboard() {
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'create' ? 'bg-[#00c8f5]/10 text-[#00c8f5] font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
           >
             <PlusCircle size={20} />
-            Create Video
+            {role === 'admin' ? 'Manage Videos' : 'Create Video'}
           </button>
           
           <button 
@@ -100,8 +159,15 @@ export default function Dashboard() {
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'history' ? 'bg-[#00c8f5]/10 text-[#00c8f5] font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
           >
             <History size={20} />
-            My Videos
+            {role === 'admin' ? 'All Videos' : 'My Videos'}
           </button>
+
+          {role === 'admin' && (
+            <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors">
+              <Users size={20} />
+              Users
+            </button>
+          )}
 
           <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors">
             <LayoutDashboard size={20} />
@@ -114,7 +180,18 @@ export default function Dashboard() {
             <Settings size={20} />
             Settings
           </button>
-          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-500 hover:bg-red-50 transition-colors mt-2">
+          <Link href="/feedback" className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors mt-1">
+            <MessageSquare size={20} />
+            Feedback
+          </Link>
+          <button 
+            onClick={() => {
+              localStorage.removeItem('token');
+              localStorage.removeItem('user');
+              router.push('/login');
+            }}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-500 hover:bg-red-50 transition-colors mt-2"
+          >
             <LogOut size={20} />
             Log Out
           </button>
@@ -126,7 +203,7 @@ export default function Dashboard() {
         {/* Header */}
         <header className="h-20 bg-white border-b border-gray-200 flex items-center justify-between px-8 z-10 shadow-sm">
           <h1 className="text-2xl font-bold text-gray-800">
-            {activeTab === 'create' ? 'Studio Dashboard' : 'My Videos'}
+            {activeTab === 'create' ? (role === 'admin' ? 'Admin Dashboard' : 'Studio Dashboard') : 'My Videos'}
           </h1>
           <div className="flex items-center gap-6">
             <div className="relative hidden sm:block">
@@ -137,7 +214,7 @@ export default function Dashboard() {
                 className="pl-10 pr-4 py-2 border border-gray-200 rounded-full bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#00c8f5]/50 focus:border-[#00c8f5] transition-all w-64"
               />
             </div>
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-[#00c8f5] p-1 cursor-pointer hover:shadow-md transition-shadow">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#00c8f5] to-[#00b5dd] p-1 cursor-pointer hover:shadow-md transition-shadow">
               <div className="w-full h-full rounded-full bg-white flex items-center justify-center overflow-hidden">
                 <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=100&h=100" alt="User" />
               </div>
@@ -182,124 +259,40 @@ export default function Dashboard() {
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-12">
-                    {/* Pick Avatar Section */}
-                    <section>
-                      <div className="mb-6">
-                        <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                          <span className="bg-[#00c8f5]/10 text-[#00c8f5] w-8 h-8 rounded-full flex items-center justify-center text-sm">1</span>
-                          Select Your Avatar
-                        </h2>
-                        <p className="text-gray-500 text-sm ml-10 mt-1">Upload a clear front-facing photo or choose a preset.</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in zoom-in duration-500">
+                    {/* Script Studio Card */}
+                    <div 
+                      onClick={() => router.push('/script-studio')}
+                      className="group cursor-pointer bg-white border border-gray-200 rounded-3xl p-8 hover:shadow-xl hover:border-[#00c8f5]/30 transition-all duration-300 flex flex-col items-center text-center relative overflow-hidden"
+                    >
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-[#00c8f5]/20 to-purple-500/20 rounded-bl-full -z-10 group-hover:scale-110 transition-transform"></div>
+                      <div className="w-20 h-20 bg-[#00c8f5]/10 rounded-2xl flex items-center justify-center mb-6 text-[#00c8f5] group-hover:scale-110 transition-transform duration-300">
+                        <Video size={40} />
                       </div>
-                      
-                      <div className="flex flex-wrap gap-5 ml-10">
-                        {/* Upload Button */}
-                        <label className={`
-                          relative flex flex-col items-center justify-center w-32 h-40 sm:w-36 sm:h-44 
-                          rounded-2xl border-2 border-dashed bg-gray-50 cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-md
-                          ${selectedAvatarId === 'upload' ? 'border-[#00c8f5] bg-blue-50/30 ring-4 ring-[#00c8f5]/20' : 'border-gray-300 hover:border-gray-400'}
-                        `}>
-                          <input 
-                            type="file" 
-                            accept="image/*" 
-                            className="hidden" 
-                            onChange={handleImageUpload}
-                          />
-                          {uploadedImage ? (
-                            <img 
-                              src={URL.createObjectURL(uploadedImage)} 
-                              alt="Uploaded" 
-                              className="absolute inset-0 w-full h-full object-cover"
-                            />
-                          ) : (
-                            <>
-                              <div className="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center mb-3 text-[#00c8f5]">
-                                <Camera size={24} />
-                              </div>
-                              <span className="text-sm font-semibold text-gray-600 text-center px-4">Upload Photo</span>
-                            </>
-                          )}
-                          {selectedAvatarId === 'upload' && uploadedImage && (
-                            <div className="absolute top-2 right-2 w-6 h-6 bg-[#00c8f5] text-white rounded-full flex items-center justify-center shadow-md animate-in zoom-in">
-                              <Check size={14} strokeWidth={3} />
-                            </div>
-                          )}
-                        </label>
+                      <h3 className="text-2xl font-bold text-gray-800 mb-3">Script Studio</h3>
+                      <p className="text-gray-500 mb-8">
+                        Generate amazing videos with our AI avatars. Write your script, choose your avatar, and get a professional video in seconds.
+                      </p>
+                      <button className="flex items-center gap-2 text-[#00c8f5] font-semibold group-hover:gap-4 transition-all">
+                        Open Studio <ArrowRight size={20} />
+                      </button>
+                    </div>
 
-                        {/* Preset Avatars */}
-                        {presetAvatars.map((avatar) => (
-                          <button
-                            key={avatar.id}
-                            onClick={() => setSelectedAvatarId(avatar.id)}
-                            className={`
-                              relative w-32 h-40 sm:w-36 sm:h-44 rounded-2xl overflow-hidden transition-all duration-300 flex-shrink-0
-                              ${selectedAvatarId === avatar.id ? 'ring-4 ring-[#00c8f5] ring-offset-2 scale-105 shadow-lg' : 'hover:scale-105 hover:shadow-md grayscale-[0.3]'}
-                            `}
-                          >
-                            <Image
-                              src={avatar.url}
-                              alt={`Avatar ${avatar.id}`}
-                              fill
-                              className="object-cover"
-                              unoptimized
-                              priority
-                            />
-                            {selectedAvatarId === avatar.id && (
-                              <div className="absolute top-2 right-2 z-10 w-6 h-6 bg-[#00c8f5] text-white rounded-full flex items-center justify-center shadow-md animate-in zoom-in">
-                                <Check size={14} strokeWidth={3} />
-                              </div>
-                            )}
-                          </button>
-                        ))}
+                    {/* AI Assistant Card */}
+                    <div 
+                      onClick={() => router.push('/virtual-assistant')}
+                      className="group cursor-pointer bg-white border border-gray-200 rounded-3xl p-8 hover:shadow-xl hover:border-[#00c8f5]/30 transition-all duration-300 flex flex-col items-center text-center relative overflow-hidden"
+                    >
+                      <div className="absolute top-0 left-0 w-32 h-32 bg-gradient-to-br from-purple-500/20 to-[#00c8f5]/20 rounded-br-full -z-10 group-hover:scale-110 transition-transform"></div>
+                      <div className="w-20 h-20 bg-purple-500/10 rounded-2xl flex items-center justify-center mb-6 text-purple-600 group-hover:scale-110 transition-transform duration-300">
+                        <LayoutDashboard size={40} />
                       </div>
-                    </section>
-
-                    <hr className="border-gray-100 ml-10" />
-
-                    {/* Script Section */}
-                    <section>
-                      <div className="mb-6 flex justify-between items-end">
-                        <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                          <span className="bg-[#00c8f5]/10 text-[#00c8f5] w-8 h-8 rounded-full flex items-center justify-center text-sm">2</span>
-                          Write Your Script
-                        </h2>
-                        <span className="text-sm text-gray-400 font-medium">Auto-Language Detection</span>
-                      </div>
-
-                      <div className="relative ml-10">
-                        <div className="absolute -inset-1 bg-gradient-to-r from-[#00c8f5] to-purple-400 rounded-[24px] blur opacity-20 transition duration-1000 group-hover:opacity-30"></div>
-                        <textarea
-                          value={script}
-                          onChange={(e) => setScript(e.target.value)}
-                          placeholder="Hey there! I am your AI avatar generated via Anam API. How can I help you today?"
-                          className="relative w-full h-48 p-6 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200 focus:ring-2 focus:ring-[#00c8f5] focus:border-transparent outline-none text-gray-700 text-lg resize-none placeholder:text-gray-400 shadow-sm transition-all"
-                        />
-                      </div>
-                    </section>
-
-                    {/* Action */}
-                    <div className="flex justify-end pt-4 mt-8 mr-2">
-                      <button
-                        onClick={handleGenerate}
-                        disabled={isGenerating || !script}
-                        className={`
-                          flex items-center gap-3 px-8 py-4 rounded-full font-bold text-lg shadow-lg transition-all duration-300
-                          ${!script ? 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none' : 'bg-gradient-to-r from-[#00c8f5] to-blue-500 hover:shadow-cyan-500/30 hover:-translate-y-1 text-white'}
-                        `}
-                      >
-                        {isGenerating ? (
-                          <>
-                            <Loader2 size={24} className="animate-spin" />
-                            Generating Avatar...
-                          </>
-                        ) : (
-                          <>
-                            <Video size={22} />
-                            Generate Avatar
-                            <ArrowRight size={20} strokeWidth={2.5} />
-                          </>
-                        )}
+                      <h3 className="text-2xl font-bold text-gray-800 mb-3">AI Assistant</h3>
+                      <p className="text-gray-500 mb-8">
+                        Interact with our Real-time AI Assistant. Speak directly using your microphone and have an engaging, face-to-face conversation.
+                      </p>
+                      <button className="flex items-center gap-2 text-purple-600 font-semibold group-hover:gap-4 transition-all">
+                        Launch Assistant <ArrowRight size={20} />
                       </button>
                     </div>
                   </div>
@@ -309,18 +302,45 @@ export default function Dashboard() {
           )}
 
           {activeTab === 'history' && (
-            <div className="text-center py-20 animate-in fade-in">
-              <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Video size={40} className="text-gray-400" />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-800 mb-2">No videos yet</h2>
-              <p className="text-gray-500 mb-8 max-w-sm mx-auto">Your generated videos will appear here. Create your first avatar video to see it here.</p>
-              <button 
-                onClick={() => setActiveTab('create')}
-                className="px-6 py-3 bg-[#00c8f5] text-white font-semibold rounded-full hover:bg-cyan-500 transition-colors shadow-md"
-              >
-                Create Video
-              </button>
+            <div className="animate-in fade-in">
+              {isLoadingVideos ? (
+                <div className="flex justify-center items-center py-20">
+                  <Loader2 className="animate-spin text-[#00c8f5]" size={40} />
+                </div>
+              ) : userVideos.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {userVideos.map((video, idx) => (
+                    <div key={idx} className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-md transition-all group">
+                      <div className="aspect-video bg-black relative">
+                        <video src={video.url} className="w-full h-full object-cover" controls />
+                      </div>
+                      <div className="p-4">
+                        <p className="font-bold text-gray-800 truncate">{video.name}</p>
+                        <p className="text-xs text-gray-400 mt-1">{new Date(video.createdAt).toLocaleDateString()}</p>
+                        <div className="mt-4 flex justify-between items-center">
+                          <a href={video.url} download className="text-[#00c8f5] hover:text-blue-600 transition-colors">
+                            <Download size={18} />
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-20">
+                  <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <Video size={40} className="text-gray-300" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-gray-800 mb-2">No videos yet</h2>
+                  <p className="text-gray-500 mb-8 max-w-sm mx-auto">Your generated videos will appear here. Create your first avatar video to see it here.</p>
+                  <button 
+                    onClick={() => setActiveTab('create')}
+                    className="px-8 py-3 bg-[#00c8f5] text-white font-semibold rounded-full hover:bg-cyan-500 transition-colors shadow-md"
+                  >
+                    Create Video
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
