@@ -243,18 +243,44 @@ router.post('/save-video', auth, async (req, res) => {
 
     res.json({ success: true, videos: user.videos });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Save video error:', err);
+    res.status(500).json({ success: false, error: 'Error saving video', details: err.message });
   }
 });
 
 // @route   GET /api/users/videos
 router.get('/videos', auth, async (req, res) => {
+  console.log('--- FETCH VIDEOS ATTEMPT ---');
+  console.log('User ID from token:', req.user);
+  
   try {
-    const user = await User.findById(req.user);
-    if (!user) return res.status(404).json({ error: 'User not found' });
-    res.json({ success: true, videos: user.videos });
+    const user = await User.findById(req.user).select('videos');
+    console.log('User found in DB:', !!user);
+    
+    if (!user) {
+      console.warn('User document not found for ID:', req.user);
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    const videoList = user.videos || [];
+    console.log('Videos found count:', videoList.length);
+    
+    return res.json({ 
+      success: true, 
+      videos: videoList,
+      count: videoList.length
+    });
+
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('CRITICAL DATABASE ERROR IN FETCH VIDEOS:', err.message);
+    console.error(err.stack);
+    
+    return res.status(500).json({ 
+      success: false, 
+      error: 'Database fetch failure', 
+      details: err.message,
+      videos: [] // Safe fallback for UI
+    });
   }
 });
 

@@ -53,7 +53,9 @@ export default function Dashboard() {
         setUserVideos(response.data.videos || []);
       }
     } catch (error) {
-      console.error('Error fetching videos:', error);
+      console.error('Detailed Error fetching videos:', error.response?.data || error);
+      const serverErr = error.response?.data?.details || error.response?.data?.error || error.message;
+      alert(`Backend Error: ${serverErr}`);
     } finally {
       setIsLoadingVideos(false);
     }

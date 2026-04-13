@@ -308,6 +308,55 @@ export default function ScriptStudioPage() {
     l.code.toLowerCase().includes(langSearch.toLowerCase())
   );
 
+  const fileInputRef = useRef(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleAvatarFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setIsUploadingAvatar(true);
+    setErrorMsg('');
+
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const res = await fetch(`${API_URL}/api/anam/avatars/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'Failed to upload avatar');
+
+      // Add new avatar to list and select it
+      const newAvatar = {
+        id: data.avatar.id,
+        name: data.avatar.name || 'My Avatar',
+        thumbnailUrl: data.avatar.thumbnailUrl || URL.createObjectURL(file), // use preview if thumb not yet ready
+        variantName: 'One-Shot',
+      };
+      
+      setAvatars(prev => [newAvatar, ...prev]);
+      setSelectedAvatar(newAvatar);
+      setPersonaName(newAvatar.name);
+
+    } catch (err) {
+      console.error('Avatar upload error:', err);
+      setErrorMsg(`Avatar upload failed: ${err.message}`);
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
   // ── Load data ─────────────────────────────────────────────────────────
   useEffect(() => {
     (async () => {
@@ -615,16 +664,32 @@ export default function ScriptStudioPage() {
                       <div key={i} className="aspect-square rounded-xl bg-gray-800 animate-pulse" />
                     ))}
                   </div>
-                ) : filteredAvatars.length === 0 ? (
-                  <p className="text-xs text-gray-600 text-center py-6">No avatars match "{avatarSearch}"</p>
                 ) : (
-                  <div className="grid grid-cols-3 gap-2 max-h-64 overflow-y-auto pr-1">
-                    {filteredAvatars.map(av => (
-                      <button key={av.id} onClick={() => setSelectedAvatar(av)}
-                        className={`relative rounded-xl overflow-hidden border-2 aspect-square transition-all group ${selectedAvatar?.id === av.id
-                            ? 'border-[#00c8f5] shadow-lg shadow-[#00c8f5]'
-                            : 'border-gray-700 hover:border-gray-500'
-                          }`}>
+                  <div className="grid grid-cols-3 gap-2 max-h-80 overflow-y-auto pr-1">
+                    {/* Add Custom Avatar Button */}
+                    <button onClick={handleUploadClick}
+                      disabled={isUploadingAvatar}
+                      className={`relative rounded-xl border-2 border-dashed border-gray-100 flex flex-col items-center justify-center p-2 transition-all hover:bg-gray-50 hover:border-[#00c8f5] group aspect-square`}>
+                      {isUploadingAvatar ? (
+                        <div className="w-6 h-6 border-2 border-[#00c8f5] border-t-transparent rounded-full animate-spin mb-1" />
+                      ) : (
+                        <div className="text-2xl mb-1 text-gray-400 group-hover:text-[#00c8f5] group-hover:scale-110 transition-transform">📸</div>
+                      )}
+                      <p className="text-[10px] font-bold text-gray-400 group-hover:text-[#00c8f5]">Upload Photo</p>
+                      <input type="file" ref={fileInputRef} onChange={handleAvatarFileUpload} accept="image/*" className="hidden" />
+                    </button>
+
+                    {filteredAvatars.length === 0 ? (
+                      <div className="col-span-2 flex items-center justify-center py-6">
+                        <p className="text-xs text-gray-600 text-center">No avatars match "{avatarSearch}"</p>
+                      </div>
+                    ) : (
+                      filteredAvatars.map(av => (
+                        <button key={av.id} onClick={() => setSelectedAvatar(av)}
+                          className={`relative rounded-xl overflow-hidden border-2 aspect-square transition-all group ${selectedAvatar?.id === av.id
+                              ? 'border-[#00c8f5] shadow-lg shadow-[#00c8f5]'
+                              : 'border-gray-100 hover:border-gray-500'
+                            }`}>
                         {/* Avatar image — thumbnailUrl mapped from imageUrl by Express */}
                         {av.thumbnailUrl ? (
                           <img src={av.thumbnailUrl} alt={av.name}
@@ -654,7 +719,8 @@ export default function ScriptStudioPage() {
                           </div>
                         )}
                       </button>
-                    ))}
+                      ))
+                    )}
                   </div>
                 )}
                 <p className="text-xs text-gray-600">

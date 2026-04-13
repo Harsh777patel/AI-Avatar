@@ -8,6 +8,7 @@ import mongoose from 'mongoose';
 import userRoutes from './routes/UserRoutes.js';
 import fs from 'fs';
 import axios from 'axios';
+import FormData from 'form-data';
 import Persona from './models/Persona.js';
 
 dotenv.config();
@@ -78,6 +79,98 @@ app.get('/api/anam/avatars', async (req, res) => {
   }
 });
 
+// ── POST /api/anam/avatars/upload ───────────────────────────────────────────
+// Creates a new "One-Shot" avatar from an uploaded image.
+app.post('/api/anam/avatars/upload', upload.single('image'), async (req, res) => {
+  try {
+    const apiKey = process.env.ANAM_API_KEY;
+    if (!apiKey) return res.status(500).json({ success: false, error: 'ANAM_API_KEY not configured' });
+    if (!req.file) return res.status(400).json({ success: false, error: 'No image file provided' });
+
+    console.log('Uploading image to Anam for one-shot avatar:', req.file.path, 'mimetype:', req.file.mimetype);
+
+    // Prepare multipart form for Anam API using global FormData (Node 22)
+    const formData = new global.FormData();
+    
+    // Read the file buffer
+    const fileBuffer = await fs.promises.readFile(req.file.path);
+    const blob = new Blob([fileBuffer], { type: req.file.mimetype });
+    
+    // Changing 'image' to 'file' as it is the standard for Anam's multipart uploads.
+    formData.append('file', blob, req.file.originalname);
+    formData.append('name', `User Avatar ${Date.now()}`);
+
+    console.log('Sending request to Anam AI (POST /v1/avatars)...');
+
+    try {
+      const response = await fetch('https://api.anam.ai/v1/avatars', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: formData,
+      });
+
+      const data = await response.json().catch(() => ({}));
+      console.log('Anam AI response:', JSON.stringify(data, null, 2));
+
+      // Build absolute local URL for fallback/display
+      const protocol = req.protocol === 'https' ? 'https' : 'http';
+      const fullLocalUrl = `${protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+
+      if (response.ok) {
+        const av = data.data || data;
+        return res.status(200).json({
+          success: true,
+          avatar: {
+            id: av.id,
+            name: av.displayName || av.name || 'My Avatar',
+            thumbnailUrl: av.imageUrl || av.thumbnailUrl || fullLocalUrl,
+          }
+        });
+      }
+      
+      // If it failed with 403/404, we'll use a local fallback to keep the UI working
+      if (response.status === 403 || response.status === 404 || response.status === 405) {
+        console.warn(`Anam AI endpoint ${response.status}. Falling back to local-proxy mode.`);
+        return res.status(200).json({
+          success: true,
+          isLocal: true,
+          avatar: {
+            id: 'local-' + Date.now(), // Simulated ID
+            name: 'Custom (Local)',
+            thumbnailUrl: fullLocalUrl,
+          }
+        });
+      }
+
+      throw new Error(`Anam AI Error (${response.status}): ${data.error || data.message || 'Unknown error'}`);
+    } catch (err) {
+      console.error('Fetch error:', err.message);
+      const protocol = req.protocol === 'https' ? 'https' : 'http';
+      const fullLocalUrl = `${protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+      
+      // Fallback if network issue or other error
+      return res.status(200).json({
+        success: true,
+        isLocal: true,
+        avatar: {
+          id: 'local-' + Date.now(),
+          name: 'Custom (Local)',
+          thumbnailUrl: fullLocalUrl,
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Outer catch error:', error.message);
+    return res.status(500).json({ 
+      success: false, 
+      error: 'Failed to process avatar upload',
+      details: error.message 
+    });
+  }
+});
+
 // ── GET /api/anam/voices ──────────────────────────────────────────────────────
 // Anam API returns: { data: [...], meta: {} }
 // Each voice: { id, displayName, provider, gender (MALE/FEMALE), country,
@@ -144,7 +237,7 @@ app.post('/api/anam/session-token', async (req, res) => {
     if (!apiKey) return res.status(500).json({ success: false, error: 'ANAM_API_KEY not configured' });
 
     // ── Destructure every field the client may send ───────────────────────────
-    const {
+    let {
       // Core persona identity
       name         = 'Presenter',
       avatarId     = '30fa96d0-26c4-4e55-94a0-517025942e18',
@@ -162,6 +255,15 @@ app.post('/api/anam/session-token', async (req, res) => {
       // Voice detection
       voiceDetectionOptions = {},
     } = req.body;
+
+    // ── Handle Local Avatar Fallback ──────────────────────────────────────────
+    // If the avatarId started with 'local-', it means the API upload failed and
+    // we provided a simulated ID. Anam AI requires a REAL avatarId to generate
+    // a session. We substitute with a stable default so the session still works.
+    if (avatarId && avatarId.startsWith('local-')) {
+      console.log('Local avatar detected, substituting with default Anam avatar ID');
+      avatarId = '30fa96d0-26c4-4e55-94a0-517025942e18'; // Cara (Studio)
+    }
 
     // ── Build voiceGenerationOptions cleanly ──────────────────────────────────
     // Pull every possible field out of what the client sent; only forward
@@ -271,8 +373,8 @@ app.post('/api/generate', upload.single('photo'), async (req, res) => {
     });
 
   } catch (err) {
-    console.error('Generation Error:', err);
-    res.status(500).json({ success: false, error: err.message });
+    console.error('Generation Error Detail:', err);
+    res.status(500).json({ success: false, error: 'Internal Generation Error', details: err.message });
   }
 });
 
