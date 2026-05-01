@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { createClient } from '@anam-ai/js-sdk';
 import { AnamEvent } from '@anam-ai/js-sdk/dist/module/types';
@@ -8,57 +9,57 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const ASPECT_RATIOS = [
-  { id: '16/9', label: '16:9', desc: 'YouTube',        icon: '🖥️' },
+  { id: '16/9', label: '16:9', desc: 'YouTube', icon: '🖥️' },
   { id: '9/16', label: '9:16', desc: 'Reels / TikTok', icon: '📱' },
-  { id: '1/1',  label: '1:1',  desc: 'Square',         icon: '⬛' },
-  { id: '4/3',  label: '4:3',  desc: 'Classic',        icon: '📺' },
+  { id: '1/1', label: '1:1', desc: 'Square', icon: '⬛' },
+  { id: '4/3', label: '4:3', desc: 'Classic', icon: '📺' },
 ];
 
 const BACKGROUNDS = [
-  { id: 'dark',     label: 'Studio Dark',    class: 'bg-gray-950' },
-  { id: 'light',    label: 'Studio Light',   class: 'bg-gray-100' },
-  { id: 'blue',     label: 'Corporate Blue', class: 'bg-blue-950' },
-  { id: 'gradient', label: 'Gradient',       class: 'bg-gradient-to-br from-purple-950 to-blue-950' },
-  { id: 'green',    label: 'Green Screen',   class: 'bg-green-600' },
+  { id: 'dark', label: 'Studio Dark', class: 'bg-gray-950' },
+  { id: 'light', label: 'Studio Light', class: 'bg-gray-100' },
+  { id: 'blue', label: 'Corporate Blue', class: 'bg-blue-950' },
+  { id: 'gradient', label: 'Gradient', class: 'bg-gradient-to-br from-[#00c8f5] to-blue-950' },
+  { id: 'green', label: 'Green Screen', class: 'bg-green-600' },
 ];
 
 const EMOTIONS = [
   { id: 'neutral', label: 'Neutral', icon: '😐' },
   { id: 'content', label: 'Content', icon: '😊' },
-  { id: 'calm',    label: 'Calm',    icon: '😌' },
-  { id: 'sad',     label: 'Sad',     icon: '😢' },
-  { id: 'angry',   label: 'Angry',   icon: '😠' },
-  { id: 'scared',  label: 'Scared',  icon: '😨' },
+  { id: 'calm', label: 'Calm', icon: '😌' },
+  { id: 'sad', label: 'Sad', icon: '😢' },
+  { id: 'angry', label: 'Angry', icon: '😠' },
+  { id: 'scared', label: 'Scared', icon: '😨' },
 ];
 
 const LANGUAGES = [
-  { code: 'en',    label: 'English',      flag: '🇬🇧' },
+  { code: 'en', label: 'English', flag: '🇬🇧' },
   { code: 'en-US', label: 'English (US)', flag: '🇺🇸' },
   { code: 'en-AU', label: 'English (AU)', flag: '🇦🇺' },
-  { code: 'fr',    label: 'French',       flag: '🇫🇷' },
-  { code: 'de',    label: 'German',       flag: '🇩🇪' },
-  { code: 'es',    label: 'Spanish',      flag: '🇪🇸' },
-  { code: 'it',    label: 'Italian',      flag: '🇮🇹' },
-  { code: 'pt',    label: 'Portuguese',   flag: '🇵🇹' },
-  { code: 'hi',    label: 'Hindi',        flag: '🇮🇳' },
-  { code: 'ar',    label: 'Arabic',       flag: '🇸🇦' },
-  { code: 'zh',    label: 'Chinese',      flag: '🇨🇳' },
-  { code: 'ja',    label: 'Japanese',     flag: '🇯🇵' },
-  { code: 'ko',    label: 'Korean',       flag: '🇰🇷' },
-  { code: 'ru',    label: 'Russian',      flag: '🇷🇺' },
-  { code: 'tr',    label: 'Turkish',      flag: '🇹🇷' },
-  { code: 'nl',    label: 'Dutch',        flag: '🇳🇱' },
-  { code: 'pl',    label: 'Polish',       flag: '🇵🇱' },
-  { code: 'sv',    label: 'Swedish',      flag: '🇸🇪' },
-  { code: 'ur',    label: 'Urdu',         flag: '🇵🇰' },
+  { code: 'fr', label: 'French', flag: '🇫🇷' },
+  { code: 'de', label: 'German', flag: '🇩🇪' },
+  { code: 'es', label: 'Spanish', flag: '🇪🇸' },
+  { code: 'it', label: 'Italian', flag: '🇮🇹' },
+  { code: 'pt', label: 'Portuguese', flag: '🇵🇹' },
+  { code: 'hi', label: 'Hindi', flag: '🇮🇳' },
+  { code: 'ar', label: 'Arabic', flag: '🇸🇦' },
+  { code: 'zh', label: 'Chinese', flag: '🇨🇳' },
+  { code: 'ja', label: 'Japanese', flag: '🇯🇵' },
+  { code: 'ko', label: 'Korean', flag: '🇰🇷' },
+  { code: 'ru', label: 'Russian', flag: '🇷🇺' },
+  { code: 'tr', label: 'Turkish', flag: '🇹🇷' },
+  { code: 'nl', label: 'Dutch', flag: '🇳🇱' },
+  { code: 'pl', label: 'Polish', flag: '🇵🇱' },
+  { code: 'sv', label: 'Swedish', flag: '🇸🇪' },
+  { code: 'ur', label: 'Urdu', flag: '🇵🇰' },
 ];
 
 const SCRIPT_TEMPLATES = {
-  youtube:   { label: '▶️ YouTube Intro',  text: `Hey everyone, welcome back to the channel! I'm so excited to share today's topic with you.\n\nIn this video, we're going to dive deep into something that's been on my mind for a while.\n\nMake sure you stick around until the end — I have a really valuable tip that most people overlook.\n\nLet's get into it!` },
-  reel:      { label: '📱 Reel Hook',      text: `Wait — before you scroll past, you need to hear this.\n\nMost people are doing this completely wrong, and it's costing them time and money every single day.\n\nHere's the one thing that changed everything for me...\n\nFollow for more tips like this!` },
-  podcast:   { label: '🎙️ Podcast Intro',  text: `Welcome back to the show! Today we have an incredible episode lined up for you.\n\nWe're tackling a topic that our community has been asking about for months.\n\nSo grab your coffee, get comfortable, and let's dive in.` },
-  product:   { label: '🛍️ Product Promo',  text: `Introducing something we've been working on for a long time.\n\nThis isn't just another product — it's a solution to a problem millions of people face every day.\n\nAvailable now. Link in the description.` },
-  explainer: { label: '📚 Explainer',      text: `Let me explain this as simply as possible.\n\nThere are three things you need to understand about this topic.\n\nOnce you understand these three pillars, everything else starts to make sense.` },
+  youtube: { label: '▶️ YouTube Intro', text: `Hey everyone, welcome back to the channel! I'm so excited to share today's topic with you.\n\nIn this video, we're going to dive deep into something that's been on my mind for a while.\n\nMake sure you stick around until the end — I have a really valuable tip that most people overlook.\n\nLet's get into it!` },
+  reel: { label: '📱 Reel Hook', text: `Wait — before you scroll past, you need to hear this.\n\nMost people are doing this completely wrong, and it's costing them time and money every single day.\n\nHere's the one thing that changed everything for me...\n\nFollow for more tips like this!` },
+  podcast: { label: '🎙️ Podcast Intro', text: `Welcome back to the show! Today we have an incredible episode lined up for you.\n\nWe're tackling a topic that our community has been asking about for months.\n\nSo grab your coffee, get comfortable, and let's dive in.` },
+  product: { label: '🛍️ Product Promo', text: `Introducing something we've been working on for a long time.\n\nThis isn't just another product — it's a solution to a problem millions of people face every day.\n\nAvailable now. Link in the description.` },
+  explainer: { label: '📚 Explainer', text: `Let me explain this as simply as possible.\n\nThere are three things you need to understand about this topic.\n\nOnce you understand these three pillars, everything else starts to make sense.` },
 };
 
 const LLM_OPTIONS = [
@@ -88,13 +89,13 @@ function estimateDuration(text, speed = 1.0) {
 // Avatar fields from API: id, displayName, variantName, imageUrl, videoUrl
 function normalizeAvatar(av) {
   return {
-    id:           av.id,
+    id: av.id,
     // backend may have already mapped displayName→name, or not
-    name:         av.name || av.displayName || 'Avatar',
-    variantName:  av.variantName || '',
+    name: av.name || av.displayName || 'Avatar',
+    variantName: av.variantName || '',
     // backend may have already mapped imageUrl→thumbnailUrl, or not
     thumbnailUrl: av.thumbnailUrl || av.imageUrl || '',
-    videoUrl:     av.videoUrl || '',
+    videoUrl: av.videoUrl || '',
   };
 }
 
@@ -102,17 +103,17 @@ function normalizeAvatar(av) {
 //   description, sampleUrl, previewSampleUrl, displayTags, providerModelId
 function normalizeVoice(v) {
   return {
-    id:          v.id,
-    name:        v.name || v.displayName || v.id,
+    id: v.id,
+    name: v.name || v.displayName || v.id,
     // provider from API is uppercase e.g. "ELEVENLABS" — normalize for display & detection
-    provider:    (v.provider || 'cartesia').toUpperCase(),
+    provider: (v.provider || 'cartesia').toUpperCase(),
     // gender from API is uppercase "MALE"/"FEMALE" — lowercase for comparison
-    gender:      (v.gender || '').toLowerCase(),
-    country:     v.country || '',
+    gender: (v.gender || '').toLowerCase(),
+    country: v.country || '',
     description: v.description || '',
     // API returns both sampleUrl and previewSampleUrl — use whichever exists
-    sampleUrl:   v.sampleUrl || v.previewSampleUrl || '',
-    tags:        v.tags || v.displayTags || [],
+    sampleUrl: v.sampleUrl || v.previewSampleUrl || '',
+    tags: v.tags || v.displayTags || [],
   };
 }
 
@@ -122,11 +123,11 @@ function Slider({ label, value, min, max, step, onChange, format, hint }) {
     <div>
       <div className="flex justify-between mb-1.5">
         <label className="text-xs font-semibold text-gray-400">{label}</label>
-        <span className="text-xs font-mono text-purple-400">{format ? format(value) : value}</span>
+        <span className="text-xs font-mono text-[#00c8f5]">{format ? format(value) : value}</span>
       </div>
       <input type="range" min={min} max={max} step={step} value={value}
         onChange={e => onChange(parseFloat(e.target.value))}
-        className="w-full h-1.5 bg-gray-700 rounded-full appearance-none cursor-pointer accent-purple-500" />
+        className="w-full h-1.5 bg-gray-700 rounded-full appearance-none cursor-pointer accent-[#00c8f5]" />
       {hint && <p className="text-xs text-gray-600 mt-1">{hint}</p>}
     </div>
   );
@@ -140,7 +141,7 @@ function Toggle({ label, desc, value, onChange }) {
         {desc && <p className="text-xs text-gray-500">{desc}</p>}
       </div>
       <button onClick={() => onChange(!value)}
-        className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${value ? 'bg-purple-600' : 'bg-gray-600'}`}>
+        className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${value ? 'bg-[#00c8f5]' : 'bg-gray-600'}`}>
         <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${value ? 'translate-x-5' : 'translate-x-0.5'}`} />
       </button>
     </div>
@@ -150,13 +151,13 @@ function Toggle({ label, desc, value, onChange }) {
 function Section({ title, children, defaultOpen = true }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border border-gray-800 rounded-xl overflow-hidden">
+    <div className="border border-gray-100 rounded-xl overflow-hidden bg-white shadow-sm">
       <button onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between px-4 py-3 bg-gray-900/60 hover:bg-gray-800/60 transition-colors">
-        <span className="text-xs font-bold text-gray-300 uppercase tracking-wider">{title}</span>
-        <span className="text-gray-500 text-xs">{open ? '▲' : '▼'}</span>
+        className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors">
+        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{title}</span>
+        <span className="text-gray-400 text-xs">{open ? '▲' : '▼'}</span>
       </button>
-      {open && <div className="p-4 flex flex-col gap-3 bg-gray-900/20">{children}</div>}
+      {open && <div className="p-4 flex flex-col gap-3 bg-white">{children}</div>}
     </div>
   );
 }
@@ -166,15 +167,13 @@ function Steps({ current }) {
     <div className="flex items-center">
       {['Configure', 'Script', 'Record'].map((label, i) => (
         <div key={i} className="flex items-center">
-          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${
-            i === current ? 'bg-purple-600 text-white' :
-            i < current  ? 'text-green-400' : 'text-gray-600'
-          }`}>
-            <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs border ${
-              i === current ? 'border-white bg-white text-purple-600' :
-              i < current  ? 'border-green-400 bg-green-400 text-gray-900' :
-              'border-gray-600 text-gray-600'
-            }`}>{i < current ? '✓' : i + 1}</div>
+          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${i === current ? 'bg-[#00c8f5] text-white' :
+              i < current ? 'text-green-400' : 'text-gray-600'
+            }`}>
+            <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs border ${i === current ? 'border-white bg-white text-[#00c8f5]' :
+                i < current ? 'border-green-400 bg-green-400 text-gray-900' :
+                  'border-gray-600 text-gray-600'
+              }`}>{i < current ? '✓' : i + 1}</div>
             <span className="hidden sm:block">{label}</span>
           </div>
           {i < 2 && <div className={`w-6 h-px mx-0.5 ${i < current ? 'bg-green-400' : 'bg-gray-700'}`} />}
@@ -187,10 +186,10 @@ function Steps({ current }) {
 function RecPill({ status, elapsed }) {
   const cfg = {
     connecting: { bg: 'bg-yellow-600', dot: 'bg-yellow-200 animate-pulse', label: 'Connecting...' },
-    loading:    { bg: 'bg-blue-600',   dot: 'bg-blue-200 animate-pulse',   label: 'Starting avatar...' },
-    speaking:   { bg: 'bg-red-600',    dot: 'bg-red-200 animate-ping',     label: `REC ${formatTime(elapsed)}` },
-    done:       { bg: 'bg-green-600',  dot: 'bg-green-200',                label: 'Complete!' },
-    error:      { bg: 'bg-red-900',    dot: 'bg-red-300',                  label: 'Error' },
+    loading: { bg: 'bg-blue-600', dot: 'bg-blue-200 animate-pulse', label: 'Starting avatar...' },
+    speaking: { bg: 'bg-red-600', dot: 'bg-red-200 animate-ping', label: `REC ${formatTime(elapsed)}` },
+    done: { bg: 'bg-green-600', dot: 'bg-green-200', label: 'Complete!' },
+    error: { bg: 'bg-red-900', dot: 'bg-red-300', label: 'Error' },
   }[status];
   if (!cfg) return null;
   return (
@@ -204,81 +203,90 @@ function RecPill({ status, elapsed }) {
 // ── Provider badge color ──────────────────────────────────────────────────────
 function providerBadgeClass(provider = '') {
   const p = provider.toUpperCase();
-  if (p.includes('ELEVEN')) return 'bg-orange-900/50 text-orange-300';
-  if (p.includes('CARTESIA')) return 'bg-blue-900/50 text-blue-300';
-  return 'bg-gray-700 text-gray-400';
+  if (p.includes('ELEVEN')) return 'bg-orange-100 text-orange-600';
+  if (p.includes('CARTESIA')) return 'bg-blue-100 text-blue-600';
+  return 'bg-gray-100 text-gray-400';
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function ScriptStudioPage() {
-  const anamClientRef    = useRef(null);
+  const router = useRouter();
+  useEffect(() => {
+    if (!localStorage.getItem('token')) {
+      router.push('/login');
+    }
+  }, [router]);
+
+  const anamClientRef = useRef(null);
   const mediaRecorderRef = useRef(null);
-  const recordedChunks   = useRef([]);
-  const recStartRef      = useRef(null);
-  const timerRef         = useRef(null);
-  const speechDoneTimer  = useRef(null);
-  const audioPreviewRef  = useRef(null);
+  const recordedChunks = useRef([]);
+  const recStartRef = useRef(null);
+  const timerRef = useRef(null);
+  const speechDoneTimer = useRef(null);
+  const audioPreviewRef = useRef(null);
 
   // Remote data — stored already normalized
   const [avatars, setAvatars] = useState([]);
-  const [voices,  setVoices]  = useState([]);
+  const [voices, setVoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
   // Picker search/filter state
-  const [avatarSearch,   setAvatarSearch]   = useState('');
-  const [voiceSearch,    setVoiceSearch]    = useState('');
-  const [voiceGender,    setVoiceGender]    = useState('all');
-  const [voiceProvider,  setVoiceProvider]  = useState('all'); // all | CARTESIA | ELEVENLABS
-  const [langSearch,     setLangSearch]     = useState('');
+  const [avatarSearch, setAvatarSearch] = useState('');
+  const [voiceSearch, setVoiceSearch] = useState('');
+  const [voiceGender, setVoiceGender] = useState('all');
+  const [voiceProvider, setVoiceProvider] = useState('all'); // all | CARTESIA | ELEVENLABS
+  const [langSearch, setLangSearch] = useState('');
   const [playingVoiceId, setPlayingVoiceId] = useState(null);
 
   // Selections
   const [selectedAvatar, setSelectedAvatar] = useState(null);
-  const [selectedVoice,  setSelectedVoice]  = useState(null);
-  const [selectedLlm,    setSelectedLlm]    = useState(LLM_OPTIONS[0].id);
-  const [personaName,    setPersonaName]    = useState('Presenter');
+  const [selectedVoice, setSelectedVoice] = useState(null);
+  const [selectedLlm, setSelectedLlm] = useState(LLM_OPTIONS[0].id);
+  const [personaName, setPersonaName] = useState('Presenter');
 
   // Expression & tuning
-  const [emotion,           setEmotion]           = useState('neutral');
-  const [speechSpeed,       setSpeechSpeed]        = useState(1.0);
-  const [volume,            setVolume]             = useState(1.0);
-  const [stability,         setStability]          = useState(0.5);
-  const [similarityBoost,   setSimilarityBoost]    = useState(0.8);
-  const [style,             setStyle]              = useState(0.0);
-  const [useSpeakerBoost,   setUseSpeakerBoost]    = useState(false);
-  const [endOfSpeechSens,   setEndOfSpeechSens]    = useState(0.5);
-  const [speechEnhancement, setSpeechEnhancement]  = useState(0.8);
+  const [emotion, setEmotion] = useState('neutral');
+  const [speechSpeed, setSpeechSpeed] = useState(1.0);
+  const [volume, setVolume] = useState(1.0);
+  const [stability, setStability] = useState(0.5);
+  const [similarityBoost, setSimilarityBoost] = useState(0.8);
+  const [style, setStyle] = useState(0.0);
+  const [useSpeakerBoost, setUseSpeakerBoost] = useState(false);
+  const [endOfSpeechSens, setEndOfSpeechSens] = useState(0.5);
+  const [speechEnhancement, setSpeechEnhancement] = useState(0.8);
 
   // Language
   const [selectedLang, setSelectedLang] = useState(LANGUAGES[0]);
 
   // Format
   const [selectedRatio, setSelectedRatio] = useState(ASPECT_RATIOS[0]);
-  const [selectedBg,    setSelectedBg]    = useState(BACKGROUNDS[0]);
-  const [disableMic,    setDisableMic]    = useState(true);
-  const [skipGreeting,  setSkipGreeting]  = useState(true);
+  const [selectedBg, setSelectedBg] = useState(BACKGROUNDS[0]);
+  const [disableMic, setDisableMic] = useState(true);
+  const [skipGreeting, setSkipGreeting] = useState(true);
 
   // Script
-  const [script,      setScript]      = useState('');
+  const [script, setScript] = useState('');
   const [scriptTitle, setScriptTitle] = useState('');
 
   // Session/recording
-  const [step,        setStep]        = useState(0);
-  const [recStatus,   setRecStatus]   = useState('idle');
-  const [errorMsg,    setErrorMsg]    = useState('');
-  const [elapsed,     setElapsed]     = useState(0);
+  const [step, setStep] = useState(0);
+  const [recStatus, setRecStatus] = useState('idle');
+  const [errorMsg, setErrorMsg] = useState('');
+  const [elapsed, setElapsed] = useState(0);
   const [captionText, setCaptionText] = useState('');
 
   // Output
-  const [outputBlob,     setOutputBlob]     = useState(null);
-  const [outputUrl,      setOutputUrl]      = useState(null);
+  const [outputBlob, setOutputBlob] = useState(null);
+  const [outputUrl, setOutputUrl] = useState(null);
   const [outputDuration, setOutputDuration] = useState(0);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
 
   // Derived
   const isElevenLabs = selectedVoice?.provider?.toUpperCase().includes('ELEVEN');
-  const isBusy       = ['connecting', 'loading', 'speaking'].includes(recStatus);
-  const canGenerate  = script.trim().length > 0 && !!selectedAvatar && !!selectedVoice && !isBusy;
+  const isBusy = ['connecting', 'loading', 'speaking'].includes(recStatus);
+  const canGenerate = script.trim().length > 0 && !!selectedAvatar && !!selectedVoice && !isBusy;
 
   // Available provider options for filter (derived from loaded voices)
   const availableProviders = ['all', ...new Set(voices.map(v => v.provider).filter(Boolean))];
@@ -289,8 +297,8 @@ export default function ScriptStudioPage() {
   );
 
   const filteredVoices = voices.filter(v => {
-    const matchSearch   = `${v.name} ${v.country} ${v.description}`.toLowerCase().includes(voiceSearch.toLowerCase());
-    const matchGender   = voiceGender === 'all' || v.gender === voiceGender;
+    const matchSearch = `${v.name} ${v.country} ${v.description}`.toLowerCase().includes(voiceSearch.toLowerCase());
+    const matchGender = voiceGender === 'all' || v.gender === voiceGender;
     const matchProvider = voiceProvider === 'all' || v.provider.toUpperCase() === voiceProvider.toUpperCase();
     return matchSearch && matchGender && matchProvider;
   });
@@ -299,6 +307,55 @@ export default function ScriptStudioPage() {
     l.label.toLowerCase().includes(langSearch.toLowerCase()) ||
     l.code.toLowerCase().includes(langSearch.toLowerCase())
   );
+
+  const fileInputRef = useRef(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleAvatarFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setIsUploadingAvatar(true);
+    setErrorMsg('');
+
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const res = await fetch(`${API_URL}/api/anam/avatars/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'Failed to upload avatar');
+
+      // Add new avatar to list and select it
+      const newAvatar = {
+        id: data.avatar.id,
+        name: data.avatar.name || 'My Avatar',
+        thumbnailUrl: data.avatar.thumbnailUrl || URL.createObjectURL(file), // use preview if thumb not yet ready
+        variantName: 'One-Shot',
+      };
+      
+      setAvatars(prev => [newAvatar, ...prev]);
+      setSelectedAvatar(newAvatar);
+      setPersonaName(newAvatar.name);
+
+    } catch (err) {
+      console.error('Avatar upload error:', err);
+      setErrorMsg(`Avatar upload failed: ${err.message}`);
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
 
   // ── Load data ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -346,7 +403,7 @@ export default function ScriptStudioPage() {
           ? rawVoices.map(normalizeVoice)
           : FALLBACK_VOICES;
         console.log(normalizedAvatars);
-        
+
         setAvatars(normalizedAvatars);
         setVoices(normalizedVoices);
         setSelectedAvatar(normalizedAvatars[0]);
@@ -365,7 +422,7 @@ export default function ScriptStudioPage() {
     })();
 
     return () => {
-      anamClientRef.current?.stopStreaming().catch(() => {});
+      anamClientRef.current?.stopStreaming().catch(() => { });
       clearInterval(timerRef.current);
       clearTimeout(speechDoneTimer.current);
     };
@@ -393,10 +450,10 @@ export default function ScriptStudioPage() {
       : { speed: speechSpeed, volume, emotion };
 
     return {
-      name:         personaName,
-      avatarId:     selectedAvatar?.id,
-      voiceId:      selectedVoice?.id,
-      llmId:        selectedLlm,
+      name: personaName,
+      avatarId: selectedAvatar?.id,
+      voiceId: selectedVoice?.id,
+      llmId: selectedLlm,
       languageCode: selectedLang.code.split('-')[0],
       skipGreeting,
       systemPrompt: `You are ${personaName}, a professional video presenter. Speak clearly and naturally. Respond in ${selectedLang.label}.`,
@@ -407,8 +464,8 @@ export default function ScriptStudioPage() {
       },
     };
   }, [personaName, selectedAvatar, selectedVoice, selectedLlm, selectedLang,
-      emotion, speechSpeed, volume, stability, similarityBoost, style,
-      useSpeakerBoost, endOfSpeechSens, speechEnhancement, skipGreeting, isElevenLabs]);
+    emotion, speechSpeed, volume, stability, similarityBoost, style,
+    useSpeakerBoost, endOfSpeechSens, speechEnhancement, skipGreeting, isElevenLabs]);
 
   // ── Generate & record ─────────────────────────────────────────────────
   const generateAndRecord = useCallback(async () => {
@@ -437,12 +494,17 @@ export default function ScriptStudioPage() {
         if (videoEl?.srcObject) {
           const mr = new MediaRecorder(videoEl.srcObject, { mimeType: 'video/webm;codecs=vp9,opus' });
           mr.ondataavailable = e => { if (e.data.size > 0) recordedChunks.current.push(e.data); };
-          mr.onstop = () => {
+          mr.onstop = async () => {
             const blob = new Blob(recordedChunks.current, { type: 'video/webm' });
+            const url = URL.createObjectURL(blob);
             setOutputBlob(blob);
-            setOutputUrl(URL.createObjectURL(blob));
-            setOutputDuration(Date.now() - recStartRef.current);
+            setOutputUrl(url);
+            const duration = Date.now() - recStartRef.current;
+            setOutputDuration(duration);
             setRecStatus('done');
+            
+            // Auto save to dashboard
+            autoSaveVideo(blob, scriptTitle || 'AI Avatar Video');
           };
           mr.start(500);
           mediaRecorderRef.current = mr;
@@ -459,7 +521,7 @@ export default function ScriptStudioPage() {
         speechDoneTimer.current = setTimeout(async () => {
           clearInterval(timerRef.current);
           mediaRecorderRef.current?.stop();
-          try { await client.stopStreaming(); } catch (_) {}
+          try { await client.stopStreaming(); } catch (_) { }
           anamClientRef.current = null;
         }, estMs);
       });
@@ -484,7 +546,7 @@ export default function ScriptStudioPage() {
     clearInterval(timerRef.current);
     clearTimeout(speechDoneTimer.current);
     mediaRecorderRef.current?.stop();
-    try { await anamClientRef.current?.stopStreaming(); } catch (_) {}
+    try { await anamClientRef.current?.stopStreaming(); } catch (_) { }
     anamClientRef.current = null;
     setRecStatus('idle');
     setCaptionText('');
@@ -498,19 +560,61 @@ export default function ScriptStudioPage() {
     a.click();
   }, [outputUrl, scriptTitle]);
 
+  const autoSaveVideo = async (blob, title) => {
+    if (!blob) return;
+    setIsSaving(true);
+    try {
+      const formData = new FormData();
+      formData.append('video', blob, `${title}.webm`);
+
+      const uploadRes = await fetch(`${API_URL}/api/upload-video`, {
+        method: 'POST',
+        body: formData,
+      });
+      const uploadData = await uploadRes.json();
+      if (!uploadData.success) throw new Error(uploadData.error || 'Upload failed');
+
+      const saveRes = await fetch(`${API_URL}/api/users/save-video`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          name: title,
+          url: uploadData.videoUrl
+        }),
+      });
+      const saveData = await saveRes.json();
+      if (saveData.success) {
+        setIsSaved(true);
+      }
+    } catch (err) {
+      console.error('Auto-save error:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const saveToDashboard = useCallback(async () => {
+    if (!outputBlob) return;
+    await autoSaveVideo(outputBlob, scriptTitle || 'AI Avatar Video');
+    if (isSaved) alert('Video saved to dashboard!');
+  }, [outputBlob, scriptTitle, isSaved]);
+
   const reset = () => {
-    setRecStatus('idle'); setOutputBlob(null); setOutputUrl(null); setCaptionText('');
+    setRecStatus('idle'); setOutputBlob(null); setOutputUrl(null); setCaptionText(''); setIsSaved(false);
   };
 
   // ── Render ────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#08080f] text-white flex flex-col">
+    <div className="min-h-screen bg-white text-gray-900 flex flex-col">
       <audio ref={audioPreviewRef} className="hidden" />
 
       {/* Top bar */}
-      <div className="border-b border-gray-800 px-6 py-3 flex items-center justify-between shrink-0">
+      <div className="border-b border-gray-100 px-6 py-3 flex items-center justify-between shrink-0 bg-white">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-sm">📝</div>
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#00c8f5] to-blue-600 flex items-center justify-center text-sm">📝</div>
           <div>
             <p className="font-bold text-sm">Script Studio</p>
             <p className="text-xs text-gray-500 leading-none">Avatar video from script</p>
@@ -523,13 +627,12 @@ export default function ScriptStudioPage() {
       <div className="flex flex-1 overflow-hidden">
 
         {/* ── Left panel ── */}
-        <div className="w-[420px] border-r border-gray-800 flex flex-col shrink-0">
-          <div className="flex border-b border-gray-800 shrink-0">
+        <div className="w-[420px] border-r border-gray-100 flex flex-col shrink-0 bg-white">
+          <div className="flex border-b border-gray-100 shrink-0">
             {[['⚙️ Configure', 0], ['📝 Script', 1]].map(([label, idx]) => (
               <button key={idx} onClick={() => !isBusy && setStep(idx)}
-                className={`flex-1 py-3 text-xs font-semibold transition-colors ${
-                  step === idx ? 'text-white border-b-2 border-purple-500' : 'text-gray-500 hover:text-gray-300'
-                }`}>{label}</button>
+                className={`flex-1 py-3 text-xs font-semibold transition-colors ${step === idx ? 'text-gray-900 border-b-2 border-[#00c8f5]' : 'text-gray-400 hover:text-gray-600'
+                  }`}>{label}</button>
             ))}
           </div>
 
@@ -549,11 +652,11 @@ export default function ScriptStudioPage() {
               <Section title={`👤 Avatar ${loading ? '(loading...)' : `— ${avatars.length} available`}`}>
                 <input value={personaName} onChange={e => setPersonaName(e.target.value)}
                   placeholder="Presenter name..."
-                  className="w-full bg-gray-800 text-white text-sm rounded-xl px-3 py-2.5 border border-gray-700 focus:border-purple-500 focus:outline-none" />
+                  className="w-full bg-gray-50 text-gray-900 text-sm rounded-xl px-3 py-2.5 border border-gray-100 focus:border-[#00c8f5] focus:outline-none" />
 
                 <input value={avatarSearch} onChange={e => setAvatarSearch(e.target.value)}
                   placeholder="Search by name or variant..."
-                  className="w-full bg-gray-800 text-white text-xs rounded-xl px-3 py-2 border border-gray-700 focus:border-purple-500 focus:outline-none" />
+                  className="w-full bg-gray-50 text-gray-900 text-xs rounded-xl px-3 py-2 border border-gray-100 focus:border-[#00c8f5] focus:outline-none" />
 
                 {loading ? (
                   <div className="grid grid-cols-3 gap-2">
@@ -561,17 +664,32 @@ export default function ScriptStudioPage() {
                       <div key={i} className="aspect-square rounded-xl bg-gray-800 animate-pulse" />
                     ))}
                   </div>
-                ) : filteredAvatars.length === 0 ? (
-                  <p className="text-xs text-gray-600 text-center py-6">No avatars match "{avatarSearch}"</p>
                 ) : (
-                  <div className="grid grid-cols-3 gap-2 max-h-64 overflow-y-auto pr-1">
-                    {filteredAvatars.map(av => (
-                      <button key={av.id} onClick={() => setSelectedAvatar(av)}
-                        className={`relative rounded-xl overflow-hidden border-2 aspect-square transition-all group ${
-                          selectedAvatar?.id === av.id
-                            ? 'border-purple-500 shadow-lg shadow-purple-500/30'
-                            : 'border-gray-700 hover:border-gray-500'
-                        }`}>
+                  <div className="grid grid-cols-3 gap-2 max-h-80 overflow-y-auto pr-1">
+                    {/* Add Custom Avatar Button */}
+                    <button onClick={handleUploadClick}
+                      disabled={isUploadingAvatar}
+                      className={`relative rounded-xl border-2 border-dashed border-gray-100 flex flex-col items-center justify-center p-2 transition-all hover:bg-gray-50 hover:border-[#00c8f5] group aspect-square`}>
+                      {isUploadingAvatar ? (
+                        <div className="w-6 h-6 border-2 border-[#00c8f5] border-t-transparent rounded-full animate-spin mb-1" />
+                      ) : (
+                        <div className="text-2xl mb-1 text-gray-400 group-hover:text-[#00c8f5] group-hover:scale-110 transition-transform">📸</div>
+                      )}
+                      <p className="text-[10px] font-bold text-gray-400 group-hover:text-[#00c8f5]">Upload Photo</p>
+                      <input type="file" ref={fileInputRef} onChange={handleAvatarFileUpload} accept="image/*" className="hidden" />
+                    </button>
+
+                    {filteredAvatars.length === 0 ? (
+                      <div className="col-span-2 flex items-center justify-center py-6">
+                        <p className="text-xs text-gray-600 text-center">No avatars match "{avatarSearch}"</p>
+                      </div>
+                    ) : (
+                      filteredAvatars.map(av => (
+                        <button key={av.id} onClick={() => setSelectedAvatar(av)}
+                          className={`relative rounded-xl overflow-hidden border-2 aspect-square transition-all group ${selectedAvatar?.id === av.id
+                              ? 'border-[#00c8f5] shadow-lg shadow-[#00c8f5]'
+                              : 'border-gray-100 hover:border-gray-500'
+                            }`}>
                         {/* Avatar image — thumbnailUrl mapped from imageUrl by Express */}
                         {av.thumbnailUrl ? (
                           <img src={av.thumbnailUrl} alt={av.name}
@@ -596,18 +714,19 @@ export default function ScriptStudioPage() {
 
                         {/* Selected checkmark */}
                         {selectedAvatar?.id === av.id && (
-                          <div className="absolute top-1.5 right-1.5 w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center shadow">
+                          <div className="absolute top-1.5 right-1.5 w-5 h-5 bg-[#00c8f5] rounded-full flex items-center justify-center shadow">
                             <span className="text-white text-xs font-bold">✓</span>
                           </div>
                         )}
                       </button>
-                    ))}
+                      ))
+                    )}
                   </div>
                 )}
                 <p className="text-xs text-gray-600">
                   {filteredAvatars.length} of {avatars.length} avatars
                   {selectedAvatar && (
-                    <span className="text-purple-400 ml-2">
+                    <span className="text-[#00c8f5] ml-2 font-medium">
                       · Selected: {selectedAvatar.name}
                       {selectedAvatar.variantName ? ` (${selectedAvatar.variantName})` : ''}
                     </span>
@@ -620,17 +739,16 @@ export default function ScriptStudioPage() {
                 {/* Search */}
                 <input value={voiceSearch} onChange={e => setVoiceSearch(e.target.value)}
                   placeholder="Search by name, country, description..."
-                  className="w-full bg-gray-800 text-white text-xs rounded-xl px-3 py-2 border border-gray-700 focus:border-purple-500 focus:outline-none" />
+                  className="w-full bg-gray-50 text-gray-900 text-xs rounded-xl px-3 py-2 border border-gray-100 focus:border-[#00c8f5] focus:outline-none" />
 
                 {/* Gender + Provider filter row */}
                 <div className="flex gap-2">
                   {/* Gender */}
                   <div className="flex rounded-xl border border-gray-700 overflow-hidden shrink-0">
-                    {[['all','👥 All'],['female','👩 F'],['male','👨 M']].map(([g, icon]) => (
+                    {[['all', '👥 All'], ['female', '👩 F'], ['male', '👨 M']].map(([g, icon]) => (
                       <button key={g} onClick={() => setVoiceGender(g)}
-                        className={`px-2.5 py-1.5 text-xs transition-colors ${
-                          voiceGender === g ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-                        }`}>{icon}</button>
+                        className={`px-2.5 py-1.5 text-xs transition-colors ${voiceGender === g ? 'bg-[#00c8f5] text-white' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+                          }`}>{icon}</button>
                     ))}
                   </div>
 
@@ -638,9 +756,8 @@ export default function ScriptStudioPage() {
                   <div className="flex rounded-xl border border-gray-700 overflow-hidden flex-1">
                     {availableProviders.slice(0, 3).map(p => (
                       <button key={p} onClick={() => setVoiceProvider(p)}
-                        className={`flex-1 px-2 py-1.5 text-xs transition-colors capitalize ${
-                          voiceProvider === p ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-                        }`}>
+                        className={`flex-1 px-2 py-1.5 text-xs transition-colors capitalize ${voiceProvider === p ? 'bg-[#00c8f5] text-white' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+                          }`}>
                         {p === 'all' ? 'All' : p.charAt(0) + p.slice(1).toLowerCase()}
                       </button>
                     ))}
@@ -653,11 +770,10 @@ export default function ScriptStudioPage() {
                     <p className="text-xs text-gray-600 text-center py-6">No voices match your filters</p>
                   ) : filteredVoices.map(v => (
                     <div key={v.id} onClick={() => setSelectedVoice(v)}
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border cursor-pointer transition-all ${
-                        selectedVoice?.id === v.id
-                          ? 'border-purple-500 bg-purple-600/20'
-                          : 'border-gray-700 bg-gray-800 hover:border-gray-600'
-                      }`}>
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border cursor-pointer transition-all ${selectedVoice?.id === v.id
+                          ? 'border-[#00c8f5] bg-[#00c8f5] text-white shadow-sm'
+                          : 'border-gray-100 bg-gray-50 hover:bg-gray-100'
+                        }`}>
 
                       {/* Gender icon */}
                       <span className="text-lg shrink-0">
@@ -666,7 +782,7 @@ export default function ScriptStudioPage() {
 
                       {/* Name + meta */}
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-white truncate">{v.name}</p>
+                        <p className={`text-sm font-medium truncate ${selectedVoice?.id === v.id ? 'text-white' : 'text-gray-900'}`}>{v.name}</p>
                         <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                           {v.country && (
                             <span className="text-xs text-gray-500">{v.country}</span>
@@ -691,18 +807,17 @@ export default function ScriptStudioPage() {
                       {v.sampleUrl && (
                         <button onClick={e => { e.stopPropagation(); playVoicePreview(v); }}
                           title="Preview voice"
-                          className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 transition-colors ${
-                            playingVoiceId === v.id
-                              ? 'bg-purple-600 text-white'
-                              : 'bg-gray-700 hover:bg-gray-600 text-gray-400'
-                          }`}>
+                          className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 transition-colors ${playingVoiceId === v.id
+                              ? 'bg-[#00c8f5] text-white'
+                              : 'bg-gray-200 hover:bg-gray-300 text-gray-400'
+                            }`}>
                           {playingVoiceId === v.id ? '⏹' : '▶'}
                         </button>
                       )}
 
                       {/* Selected */}
                       {selectedVoice?.id === v.id && (
-                        <span className="text-purple-400 text-sm shrink-0">✓</span>
+                        <span className="text-[#00c8f5] text-sm shrink-0">✓</span>
                       )}
                     </div>
                   ))}
@@ -711,7 +826,7 @@ export default function ScriptStudioPage() {
                 <p className="text-xs text-gray-600">
                   {filteredVoices.length} of {voices.length} voices
                   {selectedVoice && (
-                    <span className="text-purple-400 ml-2">
+                    <span className="text-[#00c8f5] ml-2">
                       · Selected: {selectedVoice.name}
                     </span>
                   )}
@@ -723,11 +838,10 @@ export default function ScriptStudioPage() {
                   <div className="flex gap-2">
                     {LLM_OPTIONS.map(l => (
                       <button key={l.id} onClick={() => setSelectedLlm(l.id)}
-                        className={`flex-1 py-2 rounded-xl border text-xs font-medium transition-all ${
-                          selectedLlm === l.id
-                            ? 'border-purple-500 bg-purple-600/20 text-white'
-                            : 'border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-600'
-                        }`}>{l.label}</button>
+                        className={`flex-1 py-2 rounded-xl border text-xs font-medium transition-all ${selectedLlm === l.id
+                            ? 'border-[#00c8f5] bg-[#00c8f5] text-white shadow-sm'
+                            : 'border-gray-100 bg-gray-50 text-gray-400 hover:border-gray-200'
+                          }`}>{l.label}</button>
                     ))}
                   </div>
                 </div>
@@ -747,11 +861,10 @@ export default function ScriptStudioPage() {
                       <button key={e.id}
                         onClick={() => !isElevenLabs && setEmotion(e.id)}
                         disabled={isElevenLabs}
-                        className={`flex flex-col items-center py-2.5 rounded-xl border text-xs font-medium transition-all ${
-                          emotion === e.id && !isElevenLabs
-                            ? 'border-purple-500 bg-purple-600/20 text-white'
-                            : 'border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-600'
-                        } ${isElevenLabs ? 'opacity-30 cursor-not-allowed' : ''}`}>
+                        className={`flex flex-col items-center py-2.5 rounded-xl border text-xs font-medium transition-all ${emotion === e.id && !isElevenLabs
+                            ? 'border-[#00c8f5] bg-[#00c8f5] text-white shadow-sm'
+                            : 'border-gray-100 bg-gray-50 text-gray-400 hover:border-gray-200'
+                          } ${isElevenLabs ? 'opacity-30 cursor-not-allowed' : ''}`}>
                         <span className="text-xl mb-0.5">{e.icon}</span>{e.label}
                       </button>
                     ))}
@@ -799,18 +912,17 @@ export default function ScriptStudioPage() {
                 <p className="text-xs text-gray-500">Select a voice in the matching language for the best accent. The language code controls speech recognition.</p>
                 <input value={langSearch} onChange={e => setLangSearch(e.target.value)}
                   placeholder="Search language..."
-                  className="w-full bg-gray-800 text-white text-xs rounded-xl px-3 py-2 border border-gray-700 focus:border-purple-500 focus:outline-none" />
+                  className="w-full bg-gray-50 text-gray-900 text-xs rounded-xl px-3 py-2 border border-gray-100 focus:border-[#00c8f5] focus:outline-none" />
                 <div className="flex flex-col gap-1.5 max-h-52 overflow-y-auto pr-1">
                   {filteredLangs.map(lang => (
                     <button key={lang.code} onClick={() => setSelectedLang(lang)}
-                      className={`flex items-center gap-3 px-3 py-2 rounded-xl border text-sm transition-all ${
-                        selectedLang.code === lang.code
-                          ? 'border-purple-500 bg-purple-600/20'
-                          : 'border-gray-700 bg-gray-800 hover:border-gray-600'
-                      }`}>
+                      className={`flex items-center gap-3 px-3 py-2 rounded-xl border text-sm transition-all ${selectedLang.code === lang.code
+                          ? 'border-[#00c8f5] bg-[#00c8f5] text-white'
+                          : 'border-gray-100 bg-gray-50 hover:bg-gray-100'
+                        }`}>
                       <span className="text-xl">{lang.flag}</span>
-                      <p className="text-xs font-medium flex-1 text-left">{lang.label}</p>
-                      {selectedLang.code === lang.code && <span className="text-purple-400 text-xs">✓</span>}
+                      <p className={`text-xs font-medium flex-1 text-left ${selectedLang.code === lang.code ? 'text-white' : 'text-gray-900'}`}>{lang.label}</p>
+                      {selectedLang.code === lang.code && <span className="text-white text-xs">✓</span>}
                     </button>
                   ))}
                 </div>
@@ -821,9 +933,8 @@ export default function ScriptStudioPage() {
                 <div className="grid grid-cols-2 gap-2">
                   {ASPECT_RATIOS.map(r => (
                     <button key={r.id} onClick={() => setSelectedRatio(r)}
-                      className={`p-2.5 rounded-xl border text-left transition-all ${
-                        selectedRatio.id === r.id ? 'border-purple-500 bg-purple-600/20' : 'border-gray-700 bg-gray-800 hover:border-gray-600'
-                      }`}>
+                      className={`p-2.5 rounded-xl border text-left transition-all ${selectedRatio.id === r.id ? 'border-[#00c8f5] bg-[#00c8f5] text-white' : 'border-gray-100 bg-gray-50 hover:bg-gray-100'
+                        }`}>
                       <div className="flex items-center gap-2">
                         <span>{r.icon}</span>
                         <div><p className="text-xs font-bold">{r.label}</p><p className="text-xs text-gray-500">{r.desc}</p></div>
@@ -834,9 +945,8 @@ export default function ScriptStudioPage() {
                 <div className="flex flex-wrap gap-2">
                   {BACKGROUNDS.map(bg => (
                     <button key={bg.id} onClick={() => setSelectedBg(bg)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition-all ${
-                        selectedBg.id === bg.id ? 'border-purple-500 text-white' : 'border-gray-700 text-gray-400 hover:border-gray-600'
-                      }`}>
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition-all ${selectedBg.id === bg.id ? 'border-[#00c8f5] text-white bg-[#00c8f5]' : 'border-gray-100 text-gray-500 hover:bg-gray-50'
+                        }`}>
                       <span className={`w-3 h-3 rounded-full border border-white/20 ${bg.class}`} />
                       {bg.label}
                     </button>
@@ -853,7 +963,7 @@ export default function ScriptStudioPage() {
               </Section>
 
               <button onClick={() => setStep(1)}
-                className="w-full py-3 bg-purple-600 hover:bg-purple-500 rounded-xl font-semibold text-sm transition-colors">
+                className="w-full py-3 bg-[#00c8f5] hover:bg-[#00c8f5] rounded-xl font-semibold text-sm transition-colors">
                 Next: Write Script →
               </button>
             </>)}
@@ -864,7 +974,7 @@ export default function ScriptStudioPage() {
                 <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-2">Video Title</label>
                 <input value={scriptTitle} onChange={e => setScriptTitle(e.target.value)}
                   placeholder="My awesome video..."
-                  className="w-full bg-gray-800 text-white text-sm rounded-xl px-3 py-2.5 border border-gray-700 focus:border-purple-500 focus:outline-none" />
+                  className="w-full bg-gray-50 text-gray-900 text-sm rounded-xl px-3 py-2.5 border border-gray-100 focus:border-[#00c8f5] focus:outline-none" />
               </div>
 
               <div>
@@ -872,7 +982,7 @@ export default function ScriptStudioPage() {
                 <div className="flex flex-col gap-1.5">
                   {Object.entries(SCRIPT_TEMPLATES).map(([key, t]) => (
                     <button key={key} onClick={() => setScript(t.text)}
-                      className="text-left px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded-xl border border-gray-700 text-xs font-medium text-gray-300 transition-colors">
+                      className="text-left px-3 py-2 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-100 text-xs font-medium text-gray-700 transition-colors">
                       {t.label}
                     </button>
                   ))}
@@ -890,25 +1000,25 @@ export default function ScriptStudioPage() {
                 <textarea value={script} onChange={e => setScript(e.target.value)}
                   placeholder={`Write or paste your script here...\n\nThe avatar will speak exactly what you write in ${selectedLang.label}.`}
                   rows={14}
-                  className="w-full bg-gray-800 text-gray-100 text-sm rounded-xl px-3 py-3 resize-none border border-gray-700 focus:border-purple-500 focus:outline-none leading-relaxed" />
+                  className="w-full bg-gray-50 text-gray-900 text-sm rounded-xl px-3 py-3 resize-none border border-gray-100 focus:border-[#00c8f5] focus:outline-none leading-relaxed" />
               </div>
 
               {/* Summary */}
-              <div className="bg-gray-800/40 rounded-xl border border-gray-700 p-3 text-xs">
+              <div className="bg-gray-50 rounded-xl border border-gray-100 p-3 text-xs">
                 <p className="font-semibold text-gray-400 mb-2">Session Summary</p>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-gray-500">
-                  <span>Avatar: <span className="text-gray-300">{selectedAvatar?.name}{selectedAvatar?.variantName ? ` · ${selectedAvatar.variantName}` : ''}</span></span>
-                  <span>Voice: <span className="text-gray-300">{selectedVoice?.name}</span></span>
-                  <span>Language: <span className="text-gray-300">{selectedLang.flag} {selectedLang.label}</span></span>
-                  <span>Emotion: <span className="text-gray-300">{isElevenLabs ? 'N/A' : `${EMOTIONS.find(e => e.id === emotion)?.icon} ${emotion}`}</span></span>
-                  <span>Speed: <span className="text-gray-300">{speechSpeed.toFixed(2)}×</span></span>
-                  <span>Format: <span className="text-gray-300">{selectedRatio.label}</span></span>
+                  <span>Avatar: <span className="text-gray-900">{selectedAvatar?.name}{selectedAvatar?.variantName ? ` · ${selectedAvatar.variantName}` : ''}</span></span>
+                  <span>Voice: <span className="text-gray-900">{selectedVoice?.name}</span></span>
+                  <span>Language: <span className="text-gray-900">{selectedLang.flag} {selectedLang.label}</span></span>
+                  <span>Emotion: <span className="text-gray-900">{isElevenLabs ? 'N/A' : `${EMOTIONS.find(e => e.id === emotion)?.icon} ${emotion}`}</span></span>
+                  <span>Speed: <span className="text-gray-900">{speechSpeed.toFixed(2)}×</span></span>
+                  <span>Format: <span className="text-gray-900">{selectedRatio.label}</span></span>
                 </div>
               </div>
 
               <button onClick={() => { setStep(2); generateAndRecord(); }}
                 disabled={!canGenerate}
-                className="w-full py-3.5 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl font-bold text-sm transition-all">
+                className="w-full py-3.5 bg-gradient-to-r from-[#00c8f5] to-blue-600 hover:from-[#00c8f5] hover:to-blue-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl font-bold text-sm transition-all">
                 ⏺ Generate & Record
               </button>
               {!script.trim() && <p className="text-xs text-yellow-500 text-center">Write your script to continue</p>}
@@ -932,19 +1042,19 @@ export default function ScriptStudioPage() {
             <video id="script-video" autoPlay playsInline className="w-full h-full object-cover" />
 
             {recStatus === 'idle' && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60">
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/60">
                 {selectedAvatar?.thumbnailUrl ? (
                   <img src={selectedAvatar.thumbnailUrl} alt=""
-                    className="w-20 h-20 rounded-full object-cover border-4 border-gray-600 mb-3 opacity-70"
+                    className="w-20 h-20 rounded-full object-cover border-4 border-gray-100 mb-3 opacity-70"
                     onError={e => { e.target.style.display = 'none'; }} />
                 ) : (
-                  <div className="text-5xl mb-3 opacity-50">👤</div>
+                  <div className="text-5xl mb-3 opacity-20">👤</div>
                 )}
-                <p className="text-gray-300 text-sm font-medium">{selectedAvatar?.name || 'No avatar selected'}</p>
+                <p className="text-gray-900 text-sm font-semibold">{selectedAvatar?.name || 'No avatar selected'}</p>
                 {selectedAvatar?.variantName && (
                   <p className="text-gray-500 text-xs mt-0.5">{selectedAvatar.variantName}</p>
                 )}
-                <div className="flex items-center gap-2 mt-2 text-xs text-gray-600">
+                <div className="flex items-center gap-2 mt-2 text-xs text-gray-400">
                   <span>{selectedLang.flag} {selectedLang.label}</span>
                   <span>·</span>
                   <span>{isElevenLabs ? '🎵 ElevenLabs' : `${EMOTIONS.find(e => e.id === emotion)?.icon} ${emotion}`}</span>
@@ -956,7 +1066,7 @@ export default function ScriptStudioPage() {
 
             {(recStatus === 'connecting' || recStatus === 'loading') && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/75">
-                <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mb-3" />
+                <div className="w-12 h-12 border-4 border-[#00c8f5] border-t-transparent rounded-full animate-spin mb-3" />
                 <p className="text-gray-300 text-sm">
                   {recStatus === 'connecting' ? 'Connecting...' : 'Starting avatar...'}
                 </p>
@@ -985,11 +1095,11 @@ export default function ScriptStudioPage() {
             )}
 
             {recStatus === 'done' && outputUrl && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                <div className="bg-green-600/90 backdrop-blur rounded-2xl px-6 py-4 text-center">
+              <div className="absolute inset-0 flex items-center justify-center bg-white/40">
+                <div className="bg-white/90 backdrop-blur rounded-2xl px-6 py-4 shadow-xl text-center border border-gray-100 animate-in zoom-in">
                   <div className="text-3xl mb-2">✅</div>
-                  <p className="font-bold text-sm">Video Ready!</p>
-                  <p className="text-xs text-green-200 mt-0.5">{formatTime(outputDuration)}</p>
+                  <p className="font-bold text-sm text-gray-800">Video Ready!</p>
+                  <p className="text-xs text-green-600 font-medium mt-0.5">{formatTime(outputDuration)}</p>
                 </div>
               </div>
             )}
@@ -1003,7 +1113,7 @@ export default function ScriptStudioPage() {
           <div className="flex gap-3 w-full max-w-md">
             {(recStatus === 'idle' || recStatus === 'error') && (
               <button onClick={() => { setStep(2); generateAndRecord(); }} disabled={!canGenerate}
-                className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl font-bold text-sm transition-all">
+                className="flex-1 py-3 bg-gradient-to-r from-[#00c8f5] to-blue-600 hover:from-[#00c8f5] hover:to-blue-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl font-bold text-sm transition-all">
                 ⏺ Generate & Record
               </button>
             )}
@@ -1019,7 +1129,7 @@ export default function ScriptStudioPage() {
                 ⬇ Download
               </button>
               <button onClick={reset}
-                className="px-5 py-3 bg-gray-700 hover:bg-gray-600 rounded-xl text-sm font-semibold transition-colors">
+                className="px-5 py-3 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-sm font-semibold transition-colors">
                 🔄 New Take
               </button>
             </>)}
@@ -1027,29 +1137,30 @@ export default function ScriptStudioPage() {
 
           {/* Output player */}
           {recStatus === 'done' && outputUrl && (
-            <div className="w-full max-w-lg bg-gray-900 rounded-2xl border border-gray-700 p-4">
+            <div className="w-full max-w-lg bg-gray-50 rounded-2xl border border-gray-100 p-4 shadow-sm">
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <p className="font-semibold text-sm">{scriptTitle || 'Untitled Video'}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">
+                  <p className="font-bold text-sm text-gray-800">{scriptTitle || 'Untitled Video'}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">
                     {selectedAvatar?.name} · {selectedLang.flag} {selectedLang.label} · {selectedRatio.label} · {formatTime(outputDuration)}
                   </p>
                 </div>
-                <span className="text-xs bg-green-900/60 text-green-400 px-2 py-1 rounded-full border border-green-800">Ready</span>
+                <span className="text-xs bg-green-100 text-green-600 px-2 py-1 rounded-full border border-green-200 font-semibold">Ready</span>
               </div>
               <video src={outputUrl} controls className="w-full rounded-xl bg-black" />
               <div className="flex gap-2 mt-3">
-                <button onClick={downloadOutput}
-                  className="flex-1 py-2.5 bg-green-600 hover:bg-green-500 rounded-xl text-sm font-semibold transition-colors">
-                  ⬇ Download .webm
+                <button onClick={saveToDashboard} disabled={isSaving || isSaved}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${isSaved ? 'bg-gray-100 text-gray-400' : 'bg-[#00c8f5] hover:bg-cyan-500 text-white shadow-md'
+                    }`}>
+                  {isSaving ? 'Saving...' : isSaved ? 'Saved! ✓' : '💾 Save to Dashboard'}
                 </button>
                 <button onClick={() => { setStep(0); reset(); }}
-                  className="px-4 py-2.5 bg-gray-700 hover:bg-gray-600 rounded-xl text-sm transition-colors">
-                  ⚙️ Reconfigure
+                  className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-sm transition-colors">
+                  ⚙️
                 </button>
                 <button onClick={() => { setStep(1); reset(); }}
-                  className="px-4 py-2.5 bg-gray-700 hover:bg-gray-600 rounded-xl text-sm transition-colors">
-                  ✏️ Edit Script
+                  className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-sm transition-colors">
+                  ✏️
                 </button>
               </div>
             </div>
